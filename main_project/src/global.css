@@ -1,3 +1,5 @@
+/* ================= */
+
 * {
   box-sizing: border-box;
 }
@@ -22,22 +24,15 @@ html {
 
 body {
   margin: 0;
-  padding: 1em;
+  padding: 0;
 }
 
 main {
   margin: 0 auto;
-  /* max-width: 25em; */
+  max-width: 50em;
 }
 
 h1 {
-  /* background-image: url(assets/logo-black.svg); */
-  /* background-position: left 1em; */
-  /* background-repeat: no-repeat; */
-  /* background-size: auto 1.5em; */
-  /* margin-top: 0; */
-  /* padding: -3.5em 0 0.5em; */
-  /* padding: 3.5em 0 0.5em; */
   text-align: center;
 }
 
@@ -68,7 +63,6 @@ button {
   border: none;
   color: #000000;
   cursor: pointer;
-  /* padding: 0.3em 0.75em; */
   transition: transform 30ms;
 }
 button:hover, button:focus {

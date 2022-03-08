@@ -5,18 +5,15 @@ import "./local.css"
 const user_page_render = (login) => {
   return (
     <main>
-      <div class="titlediv">
-        {/* <div class="logo">
-          <img src="../assets/logo-black.svg" alt="" />
-        </div> */}
-        
         <div class="topnav">
-          <h1>Some Title</h1>
           <div class="topnav-right">
             <button onClick={login}>Sign in</button>
           </div>
+          <img src={require('/assets/near.png')} width="2%" height="2%"/>
+          <h1>Some Title</h1>
         </div>
-      </div>
+
+      
 
       <div>
         <p>
