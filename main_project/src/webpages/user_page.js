@@ -2,9 +2,10 @@
 import "../global.css"
 import "./local.css"
 import NearLogo from "./assets/near-black.svg";
-// import { render_markdown } from "./blog_page";
+import Editor from "./Editor"
 
-const content = require('./assets/posts.md');
+
+// =============================================
 
 
 const article_factory = article => {
@@ -57,6 +58,7 @@ const render_based_on_page = (current_page, login, username) => {
     <main>
       {top_bar(login, username)}
       <p>In {current_page} path</p> 
+      <Editor />
       <a href="/">Home</a>
     </main>
   )

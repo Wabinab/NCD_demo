@@ -1,9 +1,10 @@
 import 'regenerator-runtime/runtime'
 import React from 'react'
-import Link from 'react-router-dom';
-import ReactDOM from 'react-dom';
 import { login, logout } from './utils'
 import './global.css'
+
+// import ReactMarkdown from 'react-markdown'
+// import File from './webpages/assets/posts.md'
 
 import { user_page_render } from "./webpages/user_page"
 import { articles_db } from "./database/articles_db"
