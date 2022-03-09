@@ -1,10 +1,12 @@
 import 'regenerator-runtime/runtime'
 import React from 'react'
+import Link from 'react-router-dom';
 import ReactDOM from 'react-dom';
 import { login, logout } from './utils'
 import './global.css'
 
 import { user_page_render } from "./webpages/user_page"
+import { articles_db } from "./database/articles_db"
 
 window.React = React;
 
@@ -44,7 +46,7 @@ export default function App() {
 
   // if not signed in, return early with sign-in prompt
   if (!window.walletConnection.isSignedIn()) {
-    return user_page_render(login)
+    return user_page_render(login, "Wabinab", articles_db, window.location.pathname)
   }
 
   return (

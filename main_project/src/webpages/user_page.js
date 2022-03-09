@@ -1,31 +1,95 @@
-import React from "react";
+// import React from "react";
 import "../global.css"
 import "./local.css"
 import NearLogo from "./assets/near-black.svg";
+// import { render_markdown } from "./blog_page";
 
-const user_page_render = (login) => {
+const content = require('./assets/posts.md');
+
+
+const article_factory = article => {
+  return(
+    <li class="articles">
+      <a href={article.target}>
+        <h4 class="articles">{article.title}</h4>
+        <p class="articles">{article.explanation}</p>
+      </a>
+    </li>
+  )
+}
+
+
+const article_object = (articles) => {
+  const article_array = articles.map((article) => 
+    article_factory(article)
+  );
+
   return (
-    <main>
-      <div class="topnav">
+    <div class="articles">
+      <ul class="articles">
+        {article_array}  
+      </ul>
+    </div>
+  )
+}
+
+
+const top_bar = (login, username) => {
+  return (
+    <div class="topnav">
         <div class="logo">
           <img src={NearLogo} alt="NEAR Logo" height="30%"/>
-          <h1> NEAR Blog</h1>
+          <h1> near.blog</h1>
         </div>
         <ul class="middle">
-          <li><h2>User Profile</h2></li>
+          <li><h2>{username}</h2></li>
         </ul>
         <ul class="no-bullets">
           <li><button onClick={login}>Sign in</button></li> 
         </ul>
-      </div>  
-
-      <div>
-        <p>
-          Main paragraph
-        </p>
       </div>
+  )
+}
+
+
+const render_based_on_page = (current_page, login, username) => {
+  return (
+    <main>
+      {top_bar(login, username)}
+      <p>In {current_page} path</p> 
+      <a href="/">Home</a>
     </main>
   )
+}
+
+
+const user_page_render = (login, username, articles, current_page) => {
+  if (current_page == "/") {
+    return (
+      <main>
+        {top_bar(login, username)}
+
+        <div class="description">
+          <ul class="description">
+            <li class="narrow"><p>
+              A software developer, a machine learning engineer, 
+              and loves to learn! Started to learn blockchain at 
+              end of December 2021, and smart contract programming
+              starting January 2022. 
+            </p></li>
+            <li class="narrow"><p>
+              (a href for personal branding goes here.)
+            </p></li>
+          </ul>
+        </div>
+
+        {/* List of articles */}
+        {article_object(articles)}
+      </main>
+    )
+  } else {
+    return render_based_on_page(current_page, login, username)
+  }
 }
 
 export { user_page_render };

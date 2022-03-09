@@ -4,7 +4,7 @@
 
 .topnav {
   display: flex;
-  justify-content: space-between;
+  justify-content: space-around;
   overflow: hidden;
   background-color: #eee;
   max-height: 7.5em;
@@ -20,17 +20,21 @@
   padding: -3.5em 0 0.5em;
 }
 
-.navbar {
+div.description {
   display: flex;
-  justify-content: space-around;
-  flex: 0 0 50%;
+  justify-content: center;
+}
+
+div.articles {
+  background-color: #eee;
 }
 
 ul.middle {
   list-style-type: none;
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
-  align-items: center;
+  align-items: left;  /* might change center? */
   flex-grow: 1;
 }
 
@@ -42,6 +46,38 @@ ul.no-bullets {
   flex-grow: 1;
 }
 
+ul.description {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  list-style-type: none;
+  max-width: 25em;
+  text-align: justify;
+}
+
+ul.articles {
+  list-style-type: none;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+}
+
+li.articles {
+  border: 1px solid green;
+  background-color: white;
+  border-right: -3em;
+}
+
+li.articles:hover {
+  background-color: orange;
+}
+
+li.narrow {
+  /* margin: 0em 0; */
+  margin-bottom: -2em;
+}
+
 .logo {
   display: flex;
   justify-content: flex-start;
@@ -50,4 +86,18 @@ ul.no-bullets {
   align-items: center;
   gap: 1em;
   /* max-width: 15em; */
+}
+
+a.articles {
+  color: #000;
+  text-decoration: none;
+}
+
+h4.articles {
+  margin-top: 0.2em;
+  margin-bottom: -0.5em;
+}
+
+p.articles {
+  font-size: calc(0.5em + 0.5vw)
 }
