@@ -3,8 +3,8 @@ import React from 'react'
 import { login, logout } from './utils'
 import './global.css'
 
-// import ReactMarkdown from 'react-markdown'
-// import File from './webpages/assets/posts.md'
+
+import Drops from './webpages/Drops'
 
 import { user_page_render } from "./webpages/user_page"
 import { articles_db } from "./database/articles_db"
@@ -47,7 +47,13 @@ export default function App() {
 
   // if not signed in, return early with sign-in prompt
   if (!window.walletConnection.isSignedIn()) {
-    return user_page_render(login, "Wabinab", articles_db, window.location.pathname)
+    return user_page_render(
+      Drops,
+      login, 
+      "Wabinab", 
+      articles_db, 
+      window.location.pathname
+    )
   }
 
   return (

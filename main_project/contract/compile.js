@@ -29,7 +29,7 @@ const debug = process.argv.pop() === '--debug'
 // `--target option` in Cargo.toml.
 const buildCmd = debug
   ? 'cargo build --target wasm32-unknown-unknown'
-  : 'cargo build --target wasm32-unknown-unknown --release'
+  : "RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release"
 
 // Execute the build command, storing exit code for later use
 const { code } = sh.exec(buildCmd)
@@ -47,7 +47,12 @@ if (code === 0 && calledFromDir !== __dirname) {
   sh.rm('-f', link)
   //fixes #831: copy-update instead of linking .- sometimes sh.ln does not work on Windows
   sh.cp('-u',outFile,link)
+
+  if (!debug) {
+    sh.exec("wasm-opt -Os -o main.wasm main.wasm")
+  }
 }
+
 
 // exit script with the same code as the build command
 process.exit(code)

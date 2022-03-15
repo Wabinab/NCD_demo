@@ -8,18 +8,20 @@ use near_sdk::collections::{LookupMap};
 
 
 pub use crate::welcome::*;
-pub use crate::linkdrop::*;
+// pub use crate::linkdrop::*;
 pub use crate::internal::*;
+pub use crate::signup::*;
 
 pub mod welcome;
-pub mod linkdrop;
+// pub mod linkdrop;
 pub mod internal;
+pub mod signup;
 
 
-const ACCESS_KEY_ALLOWANCE: u128 = 1_000_000_000_000_000_000_000_000;
+// const ACCESS_KEY_ALLOWANCE: u128 = 10_000_000_000_000_000_000_000;  // 0.01N
 const NO_DEPOSIT: u128 = 0;
 
-pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: Gas = Gas(20_000_000_000_000);
+pub const GAS: Gas = Gas(30_000_000_000_000);
 
 
 #[near_bindgen]
@@ -37,34 +39,38 @@ impl Default for Welcome {
 }
 
 
+
+
+
+// =====================================
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
-pub struct LinkDrop {
-    pub accounts: LookupMap<PublicKey, Balance>,
+pub struct Signup {
+
 }
 
-impl Default for LinkDrop {
-  fn default() -> Self {
-    Self {
-      accounts: LookupMap::new(b"d".to_vec()),
+impl Default for Signup {
+    fn default() -> Self {
+      Self {}
     }
-  }
 }
 
 
-#[ext_contract(ext_self)]
+#[ext_contract(ext_linkdrop)]
 pub trait ExtLinkDrop {
-    fn on_account_created(
-      &mut self,
-      predecessor_account_id: AccountId,
-      amount: U128
-    ) -> bool;
+    fn send(public_key: PublicKey) -> Promise;
 
-    fn on_account_created_and_claimed(
-      &mut self, 
-      amount: u128
-    ) -> bool;
+    fn get_key_balance(public_key: PublicKey) -> U128;
 }
+
+
+#[ext_contract(ext_signup)]
+pub trait ExtSignUp {
+    fn on_send(public_key: PublicKey) -> Promise;
+}
+
+
+// =====================================
 
 
 
@@ -76,29 +82,30 @@ pub trait ExtLinkDrop {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::convert::TryInto;
     use near_sdk::MockedBlockchain;
-    use near_sdk::{testing_env, VMContext};
+    use near_sdk::{testing_env, VMContext, PublicKey, BlockHeight};
 
     // mock the context for testing, notice "signer_account_id" that was accessed above from env::
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
-        VMContext {
-            current_account_id: "alice_near".parse().unwrap(),
-            signer_account_id: "bob_near".parse().unwrap(),
-            signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id: "carol_near".parse().unwrap(),
-            input,
-            block_index: 0,
-            block_timestamp: 0,
-            account_balance: 0,
-            account_locked_balance: 0,
-            storage_usage: 0,
-            attached_deposit: 0,
-            prepaid_gas: 10u64.pow(18),
-            random_seed: vec![0, 1, 2],
-            is_view,
-            output_data_receivers: vec![],
-            epoch_height: 19,
-        }
+      VMContext {
+          current_account_id: "alice_near".parse().unwrap(),
+          signer_account_id: "bob_near".parse().unwrap(),
+          signer_account_pk: vec![0, 1, 2],
+          predecessor_account_id: "carol_near".parse().unwrap(),
+          input,
+          block_index: 0,
+          block_timestamp: 0,
+          account_balance: 0,
+          account_locked_balance: 0,
+          storage_usage: 0,
+          attached_deposit: 0,
+          prepaid_gas: 10u64.pow(18),
+          random_seed: vec![0, 1, 2],
+          is_view,
+          output_data_receivers: vec![],
+          epoch_height: 19,
+      }
     }
 
     #[test]
@@ -124,4 +131,5 @@ mod tests {
             contract.get_greeting("francis.near".parse().unwrap())
         );
     }
+
 }

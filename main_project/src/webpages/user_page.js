@@ -35,7 +35,7 @@ const article_object = (articles) => {
 }
 
 
-const top_bar = (login, username) => {
+const top_bar = (signup, login, username) => {
   return (
     <div class="topnav">
         <div class="logo">
@@ -46,6 +46,8 @@ const top_bar = (login, username) => {
           <li><h2>{username}</h2></li>
         </ul>
         <ul class="no-bullets">
+          {/* <li><button onClick={() => signup()}>Sign up</button></li> */}
+          <li>{signup()}</li>
           <li><button onClick={login}>Sign in</button></li> 
         </ul>
       </div>
@@ -53,10 +55,10 @@ const top_bar = (login, username) => {
 }
 
 
-const render_based_on_page = (current_page, login, username) => {
+const render_based_on_page = (current_page, signup, login, username) => {
   return (
     <main>
-      {top_bar(login, username)}
+      {top_bar(signup, login, username)}
       <p>In {current_page} path</p> 
       <Editor />
       <a href="/">Home</a>
@@ -65,11 +67,11 @@ const render_based_on_page = (current_page, login, username) => {
 }
 
 
-const user_page_render = (login, username, articles, current_page) => {
+const user_page_render = (signup, login, username, articles, current_page) => {
   if (current_page == "/") {
     return (
       <main>
-        {top_bar(login, username)}
+        {top_bar(signup, login, username)}
 
         <div class="description">
           <ul class="description">
@@ -90,7 +92,7 @@ const user_page_render = (login, username, articles, current_page) => {
       </main>
     )
   } else {
-    return render_based_on_page(current_page, login, username)
+    return render_based_on_page(current_page, signup, login, username)
   }
 }
 
