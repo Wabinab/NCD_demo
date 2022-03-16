@@ -5,7 +5,7 @@ const SEND_DEPOSIT: Balance = 1_100_000_000_000_000_000_000_000;  // 1.1N
 
 #[near_bindgen]
 impl Signup {
-    pub fn send(&self, public_key: PublicKey) {
+    pub fn send(&mut self, public_key: PublicKey) {
       ext_signup::on_send(
         public_key,
         env::current_account_id(),
@@ -14,7 +14,7 @@ impl Signup {
       );
     }
 
-    pub fn on_send(&self, public_key: PublicKey) {
+    pub fn on_send(&mut self, public_key: PublicKey) {
       ext_linkdrop::send(
         public_key,
         "testnet".parse().unwrap(),
@@ -23,7 +23,7 @@ impl Signup {
       );
     }
 
-    pub fn get_key_balance(&self, public_key: PublicKey) -> Promise {
+    pub fn get_key_balance(&mut self, public_key: PublicKey) -> Promise {
       ext_linkdrop::get_key_balance(
         public_key,
         "testnet".parse().unwrap(),

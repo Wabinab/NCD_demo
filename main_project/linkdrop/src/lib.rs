@@ -6,6 +6,20 @@ use near_sdk::{
 };
 use near_sdk::collections::{LookupMap};
 
+pub mod linkdrop;
+pub mod internal;
+
+pub use crate::linkdrop::*;
+use crate::internal::*;
+
+
+// 0.03N 
+// 0.019N required for verify 12-word remembered. 
+const ACCESS_KEY_ALLOWANCE: u128 = 30_000_000_000_000_000_000_000;  // 0.01N
+const NO_DEPOSIT: u128 = 0;
+
+pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: Gas = Gas(30_000_000_000_000);
+
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -32,184 +46,13 @@ pub trait ExtLinkDrop {
 
     fn on_account_created_and_claimed(
       &mut self, 
-      amount: u128
+      amount: U128
     ) -> bool;
 }
 
 
-#[near_bindgen]
-impl LinkDrop {
-    /// Allows given public key to claim sent balance. 
-    #[payable]
-    pub fn send(
-      &mut self,
-      public_key: PublicKey
-    ) -> Promise {
-      require!(
-        env::attached_deposit() > ACCESS_KEY_ALLOWANCE,
-        "Attached deposit must be greater than ACCESS_KEY_ALLOWANCE (1 NEAR)"
-      );
 
-      let value = self.accounts.get(&public_key).unwrap_or(0);
-
-      self.accounts.insert(
-        &public_key, 
-        &(value + env::attached_deposit() - ACCESS_KEY_ALLOWANCE),
-      );
-
-      Promise::new(env::current_account_id()).add_access_key(
-        public_key,
-        ACCESS_KEY_ALLOWANCE,
-        env::current_account_id(),
-        "claim,create_account_and_claim".to_owned(),
-      )
-    }
-
-    /// Claim tokens for specific account that are attached to the 
-    /// public key this transaction is signed with.
-    pub fn claim(
-      &mut self,
-      account_id: AccountId
-    ) -> Promise {
-      assert_predecessor_is_current("You can only claim with this account.");
-
-      require!(
-        env::is_valid_account_id(account_id.as_bytes()),
-        "Invalid account id"
-      );
-
-      let amount = expect_lightweight(
-        self.accounts.remove(&env::signer_account_pk()),
-        "Unexpected public key"
-      );
-
-      Promise::new(env::current_account_id())
-          .delete_key(env::signer_account_pk());
-      
-      Promise::new(account_id)
-          .transfer(amount)
-    }
-
-    /// Create new account without linkdrop and deposit
-    /// passed funds (used for creating sub-accounts directly.)
-    pub fn create_account(
-      &mut self,
-      new_account_id: AccountId,
-      new_public_key: PublicKey,
-    ) -> Promise {
-      require!(
-        env::is_valid_account_id(new_account_id.as_bytes()),
-        "Invalid account id"
-      );
-
-      let amount = env::attached_deposit();
-
-      Promise::new(new_account_id)
-          .create_account()
-          .add_full_access_key(new_public_key)
-          .transfer(amount)
-          .then(
-            ext_self::on_account_created(
-              env::predecessor_account_id(),
-              amount.into(),
-              env::current_account_id(),
-              NO_DEPOSIT,
-              ON_CREATE_ACCOUNT_CALLBACK_GAS
-            )
-          )
-    }
-
-    /// Create new account and claim tokens to it
-    pub fn create_account_and_claim(
-      &mut self,
-      new_account_id: AccountId,
-      new_public_key: PublicKey
-    ) -> Promise {
-      assert_predecessor_is_current(
-        "You must create and claim account from this account only."
-      );
-
-      require!(
-        env::is_valid_account_id(new_account_id.as_bytes()),
-        "Invalid account id"
-      );
-
-      let amount = expect_lightweight(
-        self.accounts.remove(&env::signer_account_pk()),
-        "Unexpected public key"
-      );
-
-      Promise::new(new_account_id)
-          .create_account()
-          .add_full_access_key(new_public_key)
-          .transfer(amount)
-          .then(
-            ext_self::on_account_created_and_claimed(
-              amount.into(),
-              env::current_account_id(),
-              NO_DEPOSIT,
-              ON_CREATE_ACCOUNT_CALLBACK_GAS,
-            )
-          )
-    }
-
-
-    // =====================CALLBACKS=======================
-    pub fn on_account_created(
-      &mut self, 
-      predecessor_account_id: AccountId,
-      amount: U128
-    ) -> bool {
-      assert_predecessor_is_current("Callback can only be called from the contract");
-
-      let creation_succeeded = is_promise_success();
-      
-      if !creation_succeeded {
-        Promise::new(predecessor_account_id)
-            .transfer(amount.into());
-      }
-
-      creation_succeeded
-    }
-
-
-    pub fn on_account_created_and_claimed(
-      &mut self,
-      amount: U128
-    ) -> bool {
-      assert_predecessor_is_current(
-        "Callback can only be called from the contract"
-      );
-
-      let creation_succeeded = is_promise_success();
-
-      if creation_succeeded {
-        Promise::new(env::current_account_id())
-            .delete_key(env::signer_account_pk());
-      } else {
-        // Put amount back
-        self.accounts
-            .insert(&env::signer_account_pk(), &amount.into());
-      }
-
-      creation_succeeded
-    }
-
-
-    /// Returns the balance associated with given key.
-    pub fn get_key_balance(
-      &self,
-      key: PublicKey
-    ) -> U128 {
-      expect_lightweight(
-        self.accounts.get(&key.into()), 
-        "Key is missing"
-      ).into()
-    }
-}
-
-
-#[cfg(test)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
     use std::convert::TryInto;
@@ -224,10 +67,10 @@ mod tests {
       pub fn new() -> Self {
           Self {
               context: VMContext {
-                  current_account_id: "".parse().unwrap(),
-                  signer_account_id: "".parse().unwrap(),
-                  signer_account_pk: vec![0, 1, 2],
-                  predecessor_account_id: "".parse().unwrap(),
+                  current_account_id: "".to_owned(),
+                  signer_account_id: "".to_owned(),
+                  signer_account_pk: vec![],
+                  predecessor_account_id: "".to_owned(),
                   input: vec![],
                   block_index: 0,
                   epoch_height: 0,
@@ -301,7 +144,7 @@ mod tests {
     }
 
     fn bob() -> AccountId {
-        "bob".parse().unwrap()
+        "bob.near".parse().unwrap()
     }
 
     
@@ -311,12 +154,15 @@ mod tests {
         let pk: PublicKey = "ed25519:qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz"
             .parse()
             .unwrap();
-        let deposit = 1_000_000;
+            let deposit: u128 = 1_000_000;
         testing_env!(VMContextBuilder::new()
             .current_account_id(linkdrop())
+            .predecessor_account_id(linkdrop())
+            .signer_account_pk(pk.clone())
             .attached_deposit(deposit)
             .finish());
-        contract.create_account(bob(), pk);
+        // contract.create_account(bob(), pk);
+        contract.create_account_and_claim(bob(), pk);
         // TODO: verify that promise was created with funds for given username.
     }
 
@@ -327,12 +173,12 @@ mod tests {
         let pk: PublicKey = "ed25519:qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz"
             .parse()
             .unwrap();
-        let deposit = 1_000_000;
+        let deposit: u128 = 1_000_000;
         testing_env!(VMContextBuilder::new()
             .current_account_id(linkdrop())
             .attached_deposit(deposit)
             .finish());
-        contract.create_account("XYZ".parse().unwrap(), pk);
+        contract.create_account_and_claim("XYZ".parse().unwrap(), pk);
     }
 
     #[test]
@@ -384,7 +230,7 @@ mod tests {
         let context = VMContextBuilder::new()
             .current_account_id(linkdrop())
             .predecessor_account_id(linkdrop())
-            .signer_account_pk(pk.into())
+            .signer_account_pk(pk)
             .account_balance(deposit)
             .finish();
         testing_env!(context);
@@ -392,6 +238,22 @@ mod tests {
             .parse()
             .unwrap();
         contract.create_account_and_claim("XYZ".parse().unwrap(), pk2);
+    }
+
+    #[test]
+    #[should_panic(expect = "Attached deposit 0 must be greater than 30000000000000000000000")]
+    fn test_drop_claim_failed_panic() {
+      let mut contract = LinkDrop::default();
+      let pk: PublicKey = "ed25519:qSq3LoufLvTCTNGC3LJePMDGrok8dHMQ5A1YD9psbiz"
+          .parse()
+          .unwrap();
+      // Deposit money to linkdrop contract.
+      let deposit = 0;
+      testing_env!(VMContextBuilder::new()
+            .current_account_id(linkdrop())
+            .attached_deposit(deposit)
+            .finish());
+        contract.send(pk.clone());
     }
 
     #[test]

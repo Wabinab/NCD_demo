@@ -18,10 +18,9 @@ pub mod internal;
 pub mod signup;
 
 
-// const ACCESS_KEY_ALLOWANCE: u128 = 10_000_000_000_000_000_000_000;  // 0.01N
 const NO_DEPOSIT: u128 = 0;
 
-pub const GAS: Gas = Gas(30_000_000_000_000);
+pub const GAS: Gas = Gas(20_000_000_000_000);
 
 
 #[near_bindgen]
