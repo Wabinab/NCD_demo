@@ -19,17 +19,29 @@ pub(crate) fn royalty_to_payout(
 
 pub(crate) fn default_royalty(
   owner_id: AccountId,
+  contract_id: AccountId,
+  article_number: u64,
 ) -> UnorderedMap<AccountId, u16> {
+
+    // let special_key = format!(
+    //   "{}{}", owner_id, article_number
+    // ).as_bytes();
+
+    eprintln!("Error here!");
     let mut payout = UnorderedMap::new(
       StorageKey::RoyaltyKey.try_to_vec().unwrap()
+      // special_key.to_vec()
     );
     
     // 90% to owner
+    eprintln!("Or here");
     payout.insert(&owner_id, &9_000u16);
     
     // 10% to me (is this correct? Predecessor or current?)
-    payout.insert(&env::predecessor_account_id(), &1_000u16);
+    eprintln!("perhaps here");
+    payout.insert(&contract_id, &1_000u16);
 
+    eprintln!("maybe here");
     payout
 }
 
@@ -51,6 +63,7 @@ pub trait GeneratePayout {
 #[near_bindgen]
 impl GeneratePayout for Contract {
 
+    #[result_serializer(borsh)]  // This one. 
     fn calculate_payout(
       &mut self, 
       article_id: ArticleId, 

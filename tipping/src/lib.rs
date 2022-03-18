@@ -10,7 +10,10 @@ use near_helper::*;
 
 
 pub mod tipping;
+pub mod article;
+
 use crate::tipping::*;
+use crate::article::*;
 
 
 pub type ArticleId = String;
@@ -20,7 +23,8 @@ pub type ArticleId = String;
 #[derive(BorshSerialize)]
 pub enum StorageKey {
     RoyaltyKey,
-    PayoutKey
+    PayoutKey,
+    ArticleKey
 }
 
 
@@ -47,6 +51,36 @@ pub struct Contract {
 
 
 #[near_bindgen]
+impl Contract {
+    #[init]
+    pub fn new(owner_id: AccountId) -> Self {
+      Self {
+        owner_id, 
+        article_by_id: LookupMap::new(
+          StorageKey::ArticleKey.try_to_vec().unwrap()
+        ),
+      }
+    }
+}
+
+
+pub trait ContractCore {
+    fn fetch_owner(&self) -> AccountId;
+}
+
+
+#[near_bindgen]
+impl ContractCore for Contract {
+    fn fetch_owner(&self) -> AccountId {
+      self.owner_id.clone()
+    }
+}
+
+
+// ========================== ARTICLE ============================== //
+
+
+#[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Article {
     /// article owner. DO NOT CONFUSE with Contract's owner id. 
@@ -66,7 +100,7 @@ pub struct Article {
 impl Default for Article {
     fn default() -> Self {
       Self {
-        owner_id: AccountId::new_unchecked(String::from("")),
+        owner_id: env::current_account_id(),
         article_id: "".to_owned(),
         royalty: UnorderedMap::new(
           StorageKey::RoyaltyKey.try_to_vec().unwrap()
@@ -75,21 +109,11 @@ impl Default for Article {
     }
 }
 
-impl Article {
-    fn new(owner_id: AccountId, article_number: u64) -> Self {
-      Self {
-        // as we need owner_id.clone(), we move to first place. 
-        royalty: default_royalty(owner_id.clone()),
-        article_id: format!("{}{}", owner_id.clone(), article_number), 
-        owner_id,
-      }
-    }
-}
 
+// ======================================= PAYOUT =============================== //
 
-
-#[derive(BorshDeserialize, BorshSerialize, Serialize)]
-#[serde(crate = "near_sdk::serde")]
+// MAYBE INCLUDE #[serde(crate = "near_sdk::serde")]
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct Payout {
     pub payout: UnorderedMap<AccountId, U128>,
 }
@@ -102,4 +126,90 @@ impl Default for Payout {
         ),
       }
     }
+}
+
+
+// ==================================== TESTS ============================= //
+
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+    use near_sdk::test_utils::VMContextBuilder;
+    use near_sdk::{testing_env, VMContext, PublicKey};
+    use std::convert::TryInto;
+
+
+    fn alice() -> AccountId {
+      "alice.near".parse().unwrap()
+    }
+
+
+    fn bob() -> AccountId {
+      "bob.near".parse().unwrap()
+    }
+
+
+    fn tipping() -> AccountId {
+      "tipping.near".parse().unwrap()
+    }
+
+
+    fn default_context() -> VMContext {
+      VMContextBuilder::new()
+          .current_account_id(tipping())
+          .signer_account_id(bob())
+          .build()
+    }
+
+
+    #[test]
+    fn test_create_new_articles_default() {
+      testing_env!(default_context());
+
+      let mut contract = Contract::new(tipping());
+      contract.add_new_article_default(bob(), 1);
+
+      assert_eq!(
+        contract.owner_id, 
+        tipping()
+      );
+
+      let g = contract.article_by_id
+          .get(&"bob.near1".to_owned())
+          .expect("article_id changed implementation?");
+
+      // Royalty assertions. 
+      let mut count = 0;
+
+      for (k, v) in g.royalty.iter() {
+        count += 1;
+        eprintln!("{}", k.clone());
+        if k == bob() {
+          assert_eq!(v, 9000);
+        } else {
+          assert_eq!(v, 1000);
+        }
+      }
+
+      assert_eq!(count, 2, "Royalty payout incorrect length");
+    }
+
+
+    #[test]
+    fn test_create_multiple_articles_single_account() {
+      testing_env!(default_context());
+
+      let mut contract = Contract::new(tipping());
+      contract.add_new_article_default(bob(), 1);
+      contract.add_new_article_default(bob(), 3);
+
+      let g = contract.article_by_id;
+      assert!(g.get(&"bob.near1".to_owned()).is_some());
+      assert!(g.get(&"bob.near2".to_owned()).is_none());
+      assert!(g.get(&"bob.near3".to_owned()).is_some());
+      // assert!(contract.article_by_id.contains_key(&"bob.near3".to_owned()));
+      
+    }
+
 }
