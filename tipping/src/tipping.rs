@@ -1,4 +1,6 @@
 use crate::*;
+use near_sdk::utils::{assert_one_yocto};
+
 
 
 // This function supposedly be in internal.rs, but we're not using
@@ -14,45 +16,12 @@ pub(crate) fn royalty_to_payout(
 }
 
 
-// ================== DEFAULT ROYALTY =====================//
-
-
-pub(crate) fn default_royalty(
-  owner_id: AccountId,
-  contract_id: AccountId,
-  article_number: u64,
-) -> UnorderedMap<AccountId, u16> {
-
-    // let special_key = format!(
-    //   "{}{}", owner_id, article_number
-    // ).as_bytes();
-
-    eprintln!("Error here!");
-    let mut payout = UnorderedMap::new(
-      StorageKey::RoyaltyKey.try_to_vec().unwrap()
-      // special_key.to_vec()
-    );
-    
-    // 90% to owner
-    eprintln!("Or here");
-    payout.insert(&owner_id, &9_000u16);
-    
-    // 10% to me (is this correct? Predecessor or current?)
-    eprintln!("perhaps here");
-    payout.insert(&contract_id, &1_000u16);
-
-    eprintln!("maybe here");
-    payout
-}
-
-
 // ======================PAYOUT FEATURE=====================//
 
 pub trait GeneratePayout {
-  fn calculate_payout(
+  fn do_payout(
     &mut self,
     article_id: ArticleId,
-    amount: U128,
   ) -> Payout;
 
   // actually payout function we'll do later. 
@@ -63,54 +32,74 @@ pub trait GeneratePayout {
 #[near_bindgen]
 impl GeneratePayout for Contract {
 
+    #[payable]
     #[result_serializer(borsh)]  // This one. 
-    fn calculate_payout(
+    fn do_payout(
       &mut self, 
       article_id: ArticleId, 
-      amount: U128
     ) -> Payout {
-      let amount_float = amount.into();
+      let amount: u128 = env::attached_deposit();
+
+      let error_message = format!(
+        "The tip you send is less than we can handle. Min: {} NEAR.",
+        yoctonear_to_near(MIN_TIPPING_AMOUNT)
+      );
+      let error_message: &str = error_message.as_str();
+
+      require!(
+        amount >= MIN_TIPPING_AMOUNT, 
+        error_message,
+      );
 
       let article = expect_lightweight(
         self.article_by_id.get(&article_id),
-        "Article not found"
+        "Article not found, either it's not yet created or error. "
       );
+
+
       let royalty = article.royalty;
+      let owner_id = article.owner_id;
+
+      for account in royalty.keys() {
+        require!(
+          env::is_valid_account_id(account.as_bytes())
+        )
+      }
+      require!(
+        env::is_valid_account_id(owner_id.as_bytes())
+      );
+      
 
       let mut payout_object = Payout {
-        payout: UnorderedMap::new(
-          StorageKey::PayoutKey.try_to_vec().unwrap()
-        ),
+        payout: HashMap::new()
       };
 
-      let mut unpayable: u128 = 0u128;
+      // First, pay the owner, regardless of events. 
+      payout_object.payout.insert(owner_id, U128(royalty_to_payout(9_000u16, amount)));
+
+      let mut current_left_royalty: u16 = 1_000u16;
 
       for (k, v) in royalty.iter() {
-        let payout_amount = royalty_to_payout(v, amount_float);
+        current_left_royalty -= v;
+        let payout_amount = royalty_to_payout(v.clone(), amount);
 
         if payout_amount > MIN_TO_BE_PAYED {
-          payout_object.payout.insert(&k, &U128(payout_amount));
+          payout_object.payout.insert(k.clone(), U128(payout_amount));
         } else {
           // All will go to me as I'm GREEDY! 
-          unpayable += payout_amount;
+          current_left_royalty += v;
         }
       }
 
-      let me: U128 = expect_lightweight(
-        payout_object.payout.get(
-          &env::predecessor_account_id()
-        ),
-        format!(
-          "{} does not exist in payout object",
-          env::predecessor_account_id()
-        ).as_str(),
-      );
-      
+      // We don't check this because MIN_TIPPING_AMOUNT restrict it to be payable by being 10x
+      // of MIN_TO_BE_PAYED. 
       payout_object.payout.insert(
-        &env::predecessor_account_id(), 
-        &U128(u128::from(me) + unpayable)
+        env::current_account_id(), 
+        U128(royalty_to_payout(current_left_royalty, amount))
       );
 
       payout_object
+
+      // use Promise + callbacks to "multisend" the payments. 
     }
 }

@@ -2,11 +2,13 @@ use near_sdk::json_types::{U128};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
   near_bindgen, ext_contract, AccountId, Balance, 
-  PublicKey, Gas, PanicOnDefault, env
+  PublicKey, Gas, PanicOnDefault, env, require
 };
 use near_sdk::collections::{UnorderedMap, LookupMap};
 use near_sdk::serde::{Serialize};
 use near_helper::*;
+
+use std::collections::HashMap;
 
 
 pub mod tipping;
@@ -34,6 +36,9 @@ pub enum StorageKey {
 // receive your share. Indeed, someone else will receive
 // your share instead. (not very fair but whatever I don't care)
 const MIN_TO_BE_PAYED: u128 = 100_000_000_000_000_000_000;
+
+/// Minimum tip amount is 1e-3 NEAR. 
+const MIN_TIPPING_AMOUNT: u128 = 10 * MIN_TO_BE_PAYED;
 
 
 #[near_bindgen]
@@ -81,7 +86,7 @@ impl ContractCore for Contract {
 
 
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, Debug)]
 pub struct Article {
     /// article owner. DO NOT CONFUSE with Contract's owner id. 
     pub owner_id: AccountId,
@@ -94,7 +99,7 @@ pub struct Article {
     /// Royalty be 2 decimal places. 
     /// But we use integer, so max is 10000 (= 100.00%). 
     /// E.g. 2985 = 29.85%. 
-    pub royalty: UnorderedMap<AccountId, u16>,
+    pub royalty: HashMap<AccountId, u16>,
 }
 
 impl Default for Article {
@@ -102,9 +107,7 @@ impl Default for Article {
       Self {
         owner_id: env::current_account_id(),
         article_id: "".to_owned(),
-        royalty: UnorderedMap::new(
-          StorageKey::RoyaltyKey.try_to_vec().unwrap()
-        ),
+        royalty: HashMap::new(),
       }
     }
 }
@@ -115,17 +118,7 @@ impl Default for Article {
 // MAYBE INCLUDE #[serde(crate = "near_sdk::serde")]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Payout {
-    pub payout: UnorderedMap<AccountId, U128>,
-}
-
-impl Default for Payout {
-    fn default() -> Self {
-      Self {
-        payout: UnorderedMap::new(
-          StorageKey::PayoutKey.try_to_vec().unwrap()
-        ),
-      }
-    }
+    pub payout: HashMap<AccountId, U128>,
 }
 
 
@@ -155,54 +148,50 @@ mod tests {
     }
 
 
-    fn default_context() -> VMContext {
+    fn default_context(deposit: u128) -> VMContext {
       VMContextBuilder::new()
           .current_account_id(tipping())
           .signer_account_id(bob())
+          .attached_deposit(deposit)
           .build()
+    }
+
+    
+    fn contract_add_new_article_default() -> Contract {
+      let mut contract = Contract::new(tipping());
+      contract.add_new_article_default(1);
+
+      contract
     }
 
 
     #[test]
     fn test_create_new_articles_default() {
-      testing_env!(default_context());
+      testing_env!(default_context(0));
 
-      let mut contract = Contract::new(tipping());
-      contract.add_new_article_default(bob(), 1);
+      let contract = contract_add_new_article_default();
 
       assert_eq!(
         contract.owner_id, 
         tipping()
       );
 
-      let g = contract.article_by_id
+      let article1 = contract.article_by_id
           .get(&"bob.near1".to_owned())
           .expect("article_id changed implementation?");
 
       // Royalty assertions. 
-      let mut count = 0;
-
-      for (k, v) in g.royalty.iter() {
-        count += 1;
-        eprintln!("{}", k.clone());
-        if k == bob() {
-          assert_eq!(v, 9000);
-        } else {
-          assert_eq!(v, 1000);
-        }
-      }
-
-      assert_eq!(count, 2, "Royalty payout incorrect length");
+      assert_eq!(article1.royalty.len(), 0, "Royalty payout incorrect length");
     }
 
 
     #[test]
     fn test_create_multiple_articles_single_account() {
-      testing_env!(default_context());
+      testing_env!(default_context(0));
 
       let mut contract = Contract::new(tipping());
-      contract.add_new_article_default(bob(), 1);
-      contract.add_new_article_default(bob(), 3);
+      contract.add_new_article_default(1);
+      contract.add_new_article_default(3);
 
       let g = contract.article_by_id;
       assert!(g.get(&"bob.near1".to_owned()).is_some());
@@ -210,6 +199,47 @@ mod tests {
       assert!(g.get(&"bob.near3".to_owned()).is_some());
       // assert!(contract.article_by_id.contains_key(&"bob.near3".to_owned()));
       
+    }
+
+
+    #[test]
+    fn test_default_article_payout_correct_amount() {
+      let deposit: u128 = 1_000_000_000_000_000_000_000_000;  // 1 NEAR
+      testing_env!(default_context(deposit));
+
+      let mut contract = contract_add_new_article_default();
+
+      let payout_object = contract.do_payout("bob.near1".to_owned());
+
+      assert_eq!(
+        payout_object.payout, 
+        HashMap::from([
+          (bob(), U128(900_000_000_000_000_000_000_000)),
+          (tipping(), U128(100_000_000_000_000_000_000_000)),
+        ]),
+      );
+    }
+
+
+    #[test]
+    #[should_panic]
+    fn test_default_article_panic_if_not_enough_deposit() {
+      let deposit: u128 = 100_000;  // far less than 1 NEAR
+      assert!(
+        deposit < MIN_TIPPING_AMOUNT, 
+        "Our mock deposit is larger than MIN_TIPPING_AMOUNT"
+      );
+      testing_env!(default_context(deposit));
+
+      let mut contract = contract_add_new_article_default();
+
+      contract.do_payout("bob.near1".to_owned());
+    }
+
+
+    #[test]
+    fn test_default_article_panic_if_deposit_smaller_than_attached() {
+
     }
 
 }

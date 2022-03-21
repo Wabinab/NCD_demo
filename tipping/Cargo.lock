@@ -236,9 +236,9 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
 name = "near-helper"
-version = "0.1.1"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "753171356a5cc11eaa946209b8ad663fa9a76ef8de30e02a350375ad86f47483"
+checksum = "5b236ab256c9df0075b26b4038a652b1c834a1af429c7dd2ee1c80defcc86e91"
 dependencies = [
  "near-sdk",
 ]
