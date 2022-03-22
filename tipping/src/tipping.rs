@@ -135,18 +135,19 @@ impl GeneratePayout for Contract {
 
 
       let payout_object = self.calculate_payout(article_id);
+      let mut logs: String = "".to_owned();
 
       for (account, amount) in payout_object.payout.iter() {
+        let account = account.clone();
         let amount_u128: u128 = amount.clone().into();
 
-        env::log_str(
-          format!(
-            "Sending {} yNEAR (~{} NEAR) to account @{}",
-            amount_u128,
-            yoctonear_to_near(amount_u128),
-            account.clone()
-          ).as_str()
+        let log = format!(
+          "Sending {} yNEAR (~{} NEAR) to account @{}",
+          amount_u128,
+          yoctonear_to_near(amount_u128),
+          account
         );
+        logs.push_str(&log);
 
         Promise::new(account.clone())
             .transfer(amount_u128)
@@ -154,16 +155,26 @@ impl GeneratePayout for Contract {
               ext_self::on_transfer_attached_tokens(
                 env::signer_account_id(),
                 amount.clone(),
-                account.clone(),
+                account,
                 env::current_account_id(),
                 0,
                 CALLBACK
               )
             );
 
+        env::log_str(format!("{}\nDone!", logs).as_str());
+
         // If there are refund, refund. If no, continue on. 
-        let refund: Balance = self.get_refund(env::signer_account_id()).into();
+        let owner_id = env::signer_account_id();
+        let refund: Balance = self.get_refund(owner_id.clone()).into();
         if refund > 0u128 {
+          env::log_str(
+            format!(
+              "Returning {} to @{}",
+              refund.clone(),
+              owner_id
+            ).as_str()
+          );
           Promise::new(env::signer_account_id())
               .transfer(refund)
               .then(
@@ -203,9 +214,7 @@ impl GeneratePayout for Contract {
     }
 
 
-    fn on_refund(
-      &mut self 
-    ) {
+    fn on_refund(&mut self ) {
       assert_predecessor_is_current("Can only be called by contract.");
 
       let transfer_succeeded = is_promise_success();
