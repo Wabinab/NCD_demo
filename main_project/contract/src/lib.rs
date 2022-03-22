@@ -4,18 +4,20 @@ use near_sdk::{
   near_bindgen, ext_contract, AccountId, Balance, 
   PublicKey, Gas
 };
-use near_sdk::collections::{LookupMap};
+use near_sdk::collections::{LookupMap, UnorderedMap};
 
 
 pub use crate::welcome::*;
 // pub use crate::linkdrop::*;
 pub use crate::internal::*;
 pub use crate::signup::*;
+pub use crate::tipping::*;
 
 pub mod welcome;
 // pub mod linkdrop;
 pub mod internal;
 pub mod signup;
+pub mod tipping;
 
 
 const NO_DEPOSIT: u128 = 0;
@@ -44,9 +46,7 @@ impl Default for Welcome {
 // =====================================
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
-pub struct Signup {
-
-}
+pub struct Signup {}
 
 impl Default for Signup {
     fn default() -> Self {
@@ -66,6 +66,32 @@ pub trait ExtLinkDrop {
 #[ext_contract(ext_signup)]
 pub trait ExtSignUp {
     fn on_send(public_key: PublicKey) -> Promise;
+}
+
+
+// =====================================
+
+// Vanilla sending near directly from wallet cost 0.00008N
+// transaction fee, so we must send more than that, let's 
+// set the limit to 0.0001N, otherwise not eligible to
+// receive your share. Indeed, someone else will receive
+// your share instead. (not very fair but whatever I don't care)
+const MIN_TO_BE_PAYED: u128 = 100_000_000_000_000_000_000;
+
+
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize)]
+pub struct Payout {
+    // Royalty be 2 decimal places. 
+    pub royalty: UnorderedMap<AccountId, u32>,
+}
+
+impl Default for Payout {
+    fn default() -> Self {
+      Self {
+        royalty: UnorderedMap::new(b"p".to_vec()),
+      }
+    }
 }
 
 
