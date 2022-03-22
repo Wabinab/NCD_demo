@@ -2,20 +2,25 @@ use near_sdk::json_types::{U128};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
   near_bindgen, ext_contract, AccountId, Balance, 
-  PublicKey, Gas, PanicOnDefault, env, require
+  PublicKey, Gas, PanicOnDefault, env, require, 
+  Promise
 };
 use near_sdk::collections::{UnorderedMap, LookupMap};
 use near_sdk::serde::{Serialize};
-use near_helper::*;
+use near_helper::{yoctonear_to_near, assert_predecessor_is_current, 
+  expect_lightweight
+};
 
 use std::collections::HashMap;
 
 
 pub mod tipping;
 pub mod article;
+pub mod internal;
 
 use crate::tipping::*;
 use crate::article::*;
+use crate::internal::*;
 
 
 pub type ArticleId = String;
@@ -30,15 +35,15 @@ pub enum StorageKey {
 }
 
 
-// Vanilla sending near directly from wallet cost 0.00008N
-// transaction fee, so we must send more than that, let's 
-// set the limit to 0.0001N, otherwise not eligible to
-// receive your share. Indeed, someone else will receive
-// your share instead. (not very fair but whatever I don't care)
-const MIN_TO_BE_PAYED: u128 = 100_000_000_000_000_000_000;
+/// Vanilla sending near directly from wallet cost 0.00008N
+/// transaction fee, so we must send more than that, let's 
+/// set the limit to 0.0001N, otherwise not eligible to
+/// receive your share. Indeed, someone else will receive
+/// your share instead. (not very fair but whatever I don't care)
+const MIN_TO_BE_PAYED: u128 = 50_000_000_000_000_000_000;
 
 /// Minimum tip amount is 1e-3 NEAR. 
-const MIN_TIPPING_AMOUNT: u128 = 10 * MIN_TO_BE_PAYED;
+const MIN_TIPPING_AMOUNT: u128 = 1_000_000_000_000_000_000_000;
 
 
 #[near_bindgen]
@@ -52,6 +57,10 @@ pub struct Contract {
 
     // We don't save metadata or others to save contract 
     // space. 
+
+    /// Refund to owner, a temporary variable that deletes entry
+    /// after refunding. 
+    pub refund: HashMap<AccountId, Balance>,
 }
 
 
@@ -60,11 +69,29 @@ impl Contract {
     #[init]
     pub fn new(owner_id: AccountId) -> Self {
       Self {
-        owner_id, 
+        owner_id,  // maybe use env::current_account_id()? 
         article_by_id: LookupMap::new(
           StorageKey::ArticleKey.try_to_vec().unwrap()
         ),
+        refund: HashMap::new(),
       }
+    }
+
+
+    pub fn get_refund(&self, sender_id: AccountId) -> U128 {
+      match self.refund.get(&sender_id) {
+        Some(deposit) => U128::from(*deposit),
+        None => 0.into()
+      }
+    }
+
+
+    pub fn get_article_by_id(&self, article_id: ArticleId) -> String {
+      let article = expect_lightweight(
+        self.article_by_id.get(&article_id),
+        "Cannot find article"
+      );
+      format!("{:#?}",article)
     }
 }
 
@@ -115,10 +142,34 @@ impl Default for Article {
 
 // ======================================= PAYOUT =============================== //
 
-// MAYBE INCLUDE #[serde(crate = "near_sdk::serde")]
+// #[serde(crate = "near_sdk::serde")]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Payout {
     pub payout: HashMap<AccountId, U128>,
+}
+
+
+impl Default for Payout {
+    fn default() -> Self {
+      Self {
+        payout: HashMap::new(),
+      }
+    }
+}
+
+
+// ==================================== CALLBACKS =============================== //
+
+#[ext_contract(ext_self)]
+pub trait ExtMultisender {
+    fn on_transfer_attached_tokens(
+      &mut self,
+      sender_id: AccountId,
+      amount_sent: U128,
+      recipient: AccountId,
+    );
+
+    fn on_refund(&mut self);
 }
 
 
@@ -209,7 +260,7 @@ mod tests {
 
       let mut contract = contract_add_new_article_default();
 
-      let payout_object = contract.do_payout("bob.near1".to_owned());
+      let payout_object = contract.calculate_payout("bob.near1".to_owned());
 
       assert_eq!(
         payout_object.payout, 
@@ -233,13 +284,19 @@ mod tests {
 
       let mut contract = contract_add_new_article_default();
 
-      contract.do_payout("bob.near1".to_owned());
+      contract.calculate_payout("bob.near1".to_owned());
     }
 
 
     #[test]
-    fn test_default_article_panic_if_deposit_smaller_than_attached() {
+    #[should_panic]
+    fn test_tipping_yourself_failed() {
+      let deposit: u128 = MIN_TIPPING_AMOUNT;
+      testing_env!(default_context(deposit));
 
+      let mut contract = contract_add_new_article_default();
+
+      contract.send_payout("bob.near1".to_owned());
     }
 
 }

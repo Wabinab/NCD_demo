@@ -1,6 +1,11 @@
 #!/bin/bash
 
-near delete tipping.dapplet_temp.testnet dapplet_temp.testnet
-near create-account tipping.dapplet_temp.testnet --masterAccount dapplet_temp.testnet --initialBalance 4.5
+bash build.sh
+export CONTRACT=tipping.dapplet_temp.testnet
 
-near deploy --accountId tipping.dapplet_temp.testnet --wasmFile out/main.wasm
+near delete $CONTRACT dapplet_temp.testnet
+near create-account $CONTRACT --masterAccount dapplet_temp.testnet --initialBalance 4.5
+
+near deploy --accountId $CONTRACT --wasmFile res/output_s.wasm
+
+near call $CONTRACT new '{"owner_id": "'$CONTRACT'"}' --accountId $CONTRACT
