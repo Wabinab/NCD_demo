@@ -22,9 +22,9 @@ export async function initContract() {
   // Initializing our contract APIs by contract name and configuration
   window.contract = await new Contract(window.walletConnection.account(), nearConfig.contractName, {
     // View methods are read only. They don't modify the state, but usually return some value.
-    viewMethods: ['get_greeting', 'get_key_balance'],
+    viewMethods: ['get_article_by_id', 'get_greeting'],
     // Change methods can modify the state. But you don't receive the returned value when called.
-    changeMethods: ['set_greeting', 'send'],
+    changeMethods: ['add_new_article_default', 'send_payout'],
   })
 }
 
@@ -41,5 +41,10 @@ export function login() {
   // the private key in localStorage.
   window.walletConnection.requestSignIn(nearConfig.contractName)
 }
+
+
+// export function create_article(article_number) {
+//   window.contract.add_new_article_default(article_number)
+// }
 
 

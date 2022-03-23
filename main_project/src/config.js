@@ -1,4 +1,5 @@
-const CONTRACT_NAME = process.env.CONTRACT_NAME ||'main_project'
+// const CONTRACT_NAME = process.env.CONTRACT_NAME ||'main_project'
+const CONTRACT_NAME = "tipping.dapplet_temp.testnet"
 
 function getConfig(env) {
   switch (env) {

@@ -3,12 +3,21 @@ import "../global.css"
 import "./local.css"
 import NearLogo from "./assets/near-black.svg";
 import Editor from "./Editor"
+import add_new_article_default1 from "./Article";
+import tip_author from "./Tip";
+
 
 
 // =============================================
 
+var article_map = {
+  '/eat': 1,
+  '/sleep': 2,
+  '/survive': 3
+};
 
 const article_factory = article => {
+
   return(
     <li class="articles">
       <a href={article.target}>
@@ -35,7 +44,26 @@ const article_object = (articles) => {
 }
 
 
-const top_bar = (signup, login, username) => {
+const top_bar = (signup, login, username, signed_in) => {
+  if (!signed_in) {
+    return (
+      <div class="topnav">
+          <div class="logo">
+            <img src={NearLogo} alt="NEAR Logo" height="30%"/>
+            <h1> near.blog</h1>
+          </div>
+          <ul class="middle">
+            <li><h2>{username}</h2></li>
+          </ul>
+          <ul class="no-bullets">
+            {/* <li><button onClick={() => signup()}>Sign up</button></li> */}
+            <li>{signup()}</li>
+            <li><button onClick={login}>Sign in</button></li> 
+          </ul>
+        </div>
+    )
+  }
+
   return (
     <div class="topnav">
         <div class="logo">
@@ -46,32 +74,46 @@ const top_bar = (signup, login, username) => {
           <li><h2>{username}</h2></li>
         </ul>
         <ul class="no-bullets">
-          {/* <li><button onClick={() => signup()}>Sign up</button></li> */}
-          <li>{signup()}</li>
-          <li><button onClick={login}>Sign in</button></li> 
+          <li><button onClick={login}>Sign out</button></li> 
         </ul>
       </div>
   )
 }
 
 
-const render_based_on_page = (current_page, signup, login, username) => {
+const render_based_on_page = (current_page, signup, login, username, signed_in) => {
+  if (!signed_in) {
+    return (
+      <main>
+        {top_bar(signup, login, username, signed_in)}
+        <p>In {current_page} path</p> 
+        <Editor />
+        <a href="/">Home</a>
+      </main>
+    )
+  }
+  
   return (
     <main>
-      {top_bar(signup, login, username)}
+      {top_bar(signup, login, username, signed_in)}
       <p>In {current_page} path</p> 
       <Editor />
       <a href="/">Home</a>
+      {add_new_article_default1(article_map[current_page])}
+      <button>Edit and Save</button>
+      <div>
+        {tip_author()}
+      </div>
     </main>
   )
 }
 
 
-const user_page_render = (signup, login, username, articles, current_page) => {
+const user_page_render = (signup, login, username, articles, current_page, signed_in) => {
   if (current_page == "/") {
     return (
       <main>
-        {top_bar(signup, login, username)}
+        {top_bar(signup, login, username, signed_in)}
 
         <div class="description">
           <ul class="description">
@@ -92,7 +134,7 @@ const user_page_render = (signup, login, username, articles, current_page) => {
       </main>
     )
   } else {
-    return render_based_on_page(current_page, signup, login, username)
+    return render_based_on_page(current_page, signup, login, username, signed_in)
   }
 }
 
