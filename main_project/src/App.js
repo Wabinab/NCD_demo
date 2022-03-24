@@ -4,7 +4,7 @@ import { login, logout } from './utils'
 import './global.css'
 
 
-import Drops from './webpages/Drops'
+// import Drops from './webpages/Drops'
 
 import { user_page_render } from "./webpages/user_page"
 import { articles_db } from "./database/articles_db"
@@ -50,7 +50,8 @@ export default function App() {
   // if not signed in, return early with sign-in prompt
   if (!window.walletConnection.isSignedIn()) {
     return user_page_render(
-      Drops,
+      // Drops,
+      null,
       login, 
       "Wabinab", 
       articles_db, 
@@ -60,7 +61,8 @@ export default function App() {
   }
 
   return user_page_render(
-    Drops, 
+    // Drops, 
+    null,
     logout,
     "Wabinab",
     articles_db,

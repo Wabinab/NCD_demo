@@ -8,15 +8,17 @@ use near_sdk::{
 use near_sdk::collections::{UnorderedMap, LookupMap};
 use near_sdk::serde::{Serialize};
 use near_helper::{yoctonear_to_near, assert_predecessor_is_current, 
-  expect_lightweight
+  expect_lightweight, as_scientific_notation
 };
 
 use std::collections::HashMap;
 
+use const_format::formatcp;
+
 
 pub mod tipping;
 pub mod article;
-pub mod internal;
+mod internal;
 
 use crate::tipping::*;
 use crate::article::*;
@@ -24,6 +26,7 @@ use crate::internal::*;
 
 
 pub type ArticleId = String;
+pub type PayoutType = HashMap<AccountId, U128>;
 
 
 /// Helper structure for keys of persistent collections.
@@ -40,8 +43,19 @@ pub enum StorageKey {
 /// your share instead. (not very fair but whatever I don't care)
 const MIN_TO_BE_PAYED: u128 = 50_000_000_000_000_000_000;
 
+// const MIN_TO_BE_PAYED_NUM: &str = formatcp!("5");
+// const MIN_TO_BE_PAYED_POWER: u8 = 19;
+
 /// Minimum tip amount is 1e-3 NEAR. 
 const MIN_TIPPING_AMOUNT: u128 = 1_000_000_000_000_000_000_000;
+
+
+/// Error message when attached deposit is less than 
+/// MIN_TIPPING_AMOUNT
+const ERR_MSG: &str = formatcp!(
+  "The tip you send is less than we can handle. Min: {} yoctoNEAR.",
+  MIN_TIPPING_AMOUNT
+);
 
 
 #[near_bindgen]
@@ -267,7 +281,7 @@ mod tests {
       let payout_object = contract.calculate_payout("bob.near1".to_owned());
 
       assert_eq!(
-        payout_object.payout, 
+        payout_object, 
         HashMap::from([
           (bob(), U128(900_000_000_000_000_000_000_000)),
           (tipping(), U128(100_000_000_000_000_000_000_000)),
@@ -292,7 +306,7 @@ mod tests {
       let payout_object = contract.calculate_payout("bob.near1".to_owned());
 
       assert_eq!(
-        payout_object.payout, 
+        payout_object, 
         HashMap::from([
           (bob(), U128(1_170_000_000_000_000_000_000_000)),
           (tipping(), U128(130_000_000_000_000_000_000_000)),
