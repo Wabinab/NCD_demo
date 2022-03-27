@@ -1,37 +1,20 @@
-## Welcome to GitHub Pages
+# NEAR Blog
 
-You can use the [editor on GitHub](https://github.com/Wabinab/NCD_demo/edit/main/docs/index.md) to maintain and preview the content for your website in Markdown files.
+An attempt to build a NEAR Blog like read.cash or medium that allows people to sign in with their wallet, write a blog, and others to tip the owner. The (MVP) completed code is in `tipping` folder. 
+It's an MVP because there are things that can be improved, like royalty is not developed yet for this contract. 
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+## Frontend
+Well, the frontend is bad. Given my inability to write properly in React, it'll be bad. In the future, one will try to port to Ruby on Rails to code (because it's more Pythonic!) the frontend, then re-link the backend from server and database to on-chain and blockchain network. 
+Of course, given it follows 'convention over configuration', it won't be easy, nor one thought it would be easy to redirect "Active Storage" (aka database) to IPFS. 
 
-### Markdown
+## Backend
+The first contract one tried is the signup contract, but it failed badly. Lessons are learnt, with security issues, Gas issues, farmers issues, etc. 
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+The second contract is the tipping contract, a way to tip others. It's a simple contract. In fact, **it's deliberately made as simple as possible** so readers could easily understand what is being written. 
+The more you write, the more error you have, and the more (security) loopholes you're going to create with more permutations. Keeping it as simple as possible means less gas fee to pay, and easier understanding of how things work. 
 
-```markdown
-Syntax highlighted code block
+For more info, read the README. If one have time, one might update the documentation to be more descriptive in the future. 
 
-# Header 1
-## Header 2
-### Header 3
+Thanks for reading. 
 
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
-```
-
-For more details see [Basic writing and formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/Wabinab/NCD_demo/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
+**Wabinab**
