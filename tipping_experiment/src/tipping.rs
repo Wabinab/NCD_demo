@@ -9,15 +9,49 @@ pub const CALLBACK: Gas = Gas(25_000_000_000_000);
 
 // This function supposedly be in internal.rs, but we're not using
 // it anywhere so let's just put it here. 
-/// Converts royalty percentage and amount to pay into payout. 
-pub(crate) fn royalty_to_payout(
-  royalty_percentage: u16,
-  amount_to_pay: Balance
+// /// Converts royalty percentage and amount to pay into payout. 
+// pub(crate) fn royalty_to_payout(
+//   royalty_percentage: u16,
+//   amount_to_pay: Balance
+// ) -> u128 {
+//       royalty_percentage as u128
+//       * amount_to_pay
+//       / 10_000u128  // 2.d.p
+// }
+
+
+/// Cheap version of converting royalty percentage and amount to payout. 
+pub(crate) fn royalty_to_payout_cheap(
+  royalty_percentage: u16, 
+  amount_to_pay: u32,
+  power: u8,
 ) -> u128 {
-      royalty_percentage as u128
-      * amount_to_pay
-      / 10_000u128  // 2.d.p
+    let mut value = (royalty_percentage as u32
+    * amount_to_pay
+    / 10_000u32).to_string();
+
+    for _ in 0..power {
+      value.push_str("0");
+    }
+
+    value.parse().unwrap()
 }
+
+
+// pub(crate) fn calculate_min(power: u8) -> u32 {
+//     let differences = power - MIN_TO_BE_PAYED_POWER;
+//     if differences > 0 {
+//       0u32
+//     } else if differences == 0 {
+//       MIN_TO_BE_PAYED_NUM.parse().unwrap()
+//     } else {
+//       let mut num_str: String = MIN_TO_BE_PAYED_NUM.to_owned();
+//       for i in 0..differences {
+//         num_str.push_str("0");
+//       }
+//       num_str.parse().unwrap()
+//     }
+// }
 
 
 // ======================PAYOUT FEATURE=====================//
@@ -26,7 +60,7 @@ pub trait GeneratePayout {
   fn calculate_payout(
     &mut self,
     article_id: ArticleId,
-  ) -> Payout;
+  ) -> PayoutType;
 
   // actually payout function we'll do later. 
   fn send_payout(
@@ -56,19 +90,13 @@ impl GeneratePayout for Contract {
     fn calculate_payout(
       &mut self, 
       article_id: ArticleId, 
-    ) -> Payout {
+    ) -> PayoutType {
       let amount: u128 = env::attached_deposit();
-
-      // cache error message to &str type from String type. 
-      let error_message = format!(
-        "The tip you send is less than we can handle. Min: {} NEAR.",
-        yoctonear_to_near(MIN_TIPPING_AMOUNT)
-      );
-      let error_message: &str = error_message.as_str();
+     
       // Assertions to attached enough money to continue. 
       require!(
         amount >= MIN_TIPPING_AMOUNT, 
-        error_message,
+        ERR_MSG,
       );
 
       let article = expect_lightweight(
@@ -90,19 +118,23 @@ impl GeneratePayout for Contract {
       );
       
 
-      let mut payout_object = Payout::default();
-
-      // First, pay the owner, regardless of events. 
-      payout_object.payout.insert(owner_id, U128(royalty_to_payout(9_000u16, amount)));
+      let mut payout_hashmap: PayoutType = HashMap::new();
+      
+      let (amount_digits, power) = as_scientific_notation(amount, 4);
+      // let min_to_be_payed = calculate_min(power);
+      payout_hashmap.insert(
+        owner_id, 
+        U128(royalty_to_payout_cheap(9000u16, amount_digits, power))
+      );
 
       let mut current_left_royalty: u16 = 1_000u16;
 
       for (k, v) in royalty.iter() {
         current_left_royalty -= v;
-        let payout_amount = royalty_to_payout(v.clone(), amount);
+        let payout_amount = royalty_to_payout_cheap(v.clone(), amount_digits, power);
 
         if payout_amount > MIN_TO_BE_PAYED {
-          payout_object.payout.insert(k.clone(), U128(payout_amount));
+          payout_hashmap.insert(k.clone(), U128(payout_amount));
         } else {
           // All will go to me as I'm GREEDY! 
           current_left_royalty += v;
@@ -111,12 +143,12 @@ impl GeneratePayout for Contract {
 
       // We don't check this because MIN_TIPPING_AMOUNT restrict it to be payable by being 10x
       // of MIN_TO_BE_PAYED. 
-      payout_object.payout.insert(
+      payout_hashmap.insert(
         env::current_account_id(), 
-        U128(royalty_to_payout(current_left_royalty, amount))
+        U128(royalty_to_payout_cheap(current_left_royalty, amount_digits, power))
       );
 
-      payout_object
+      payout_hashmap
     }
 
 
@@ -126,29 +158,20 @@ impl GeneratePayout for Contract {
       &mut self,
       article_id: ArticleId
     ) {
-      // repetitive, think how to remove this repetition later. 
-      // by passing article to calculate_payout instead of article_id. 
-      // let article = expect_lightweight(
-      //   self.article_by_id.get(&article_id),
-      //   "Article not found, either it's not yet created or error. "
-      // );
-      // assert_signer_not_owner(article.owner_id);
-
-
       let payout_object = self.calculate_payout(article_id);
+      let mut logs: String = "".to_owned();
 
-      for (account, amount) in payout_object.payout.iter() {
+      for (account, amount) in payout_object.iter() {
         let account = account.clone();
         let amount_u128: u128 = amount.clone().into();
 
-        env::log_str(
-          format!(
-            "Sending {} yNEAR (~{} NEAR) to account @{}",
-            amount_u128,
-            yoctonear_to_near(amount_u128),
-            account
-          ).as_str(),
+        let log = format!(
+          "Sending {} yNEAR (~{} NEAR) to account @{}",
+          amount_u128,
+          yoctonear_to_near(amount_u128),
+          account
         );
+        logs.push_str(&log);
 
         Promise::new(account.clone())
             .transfer(amount_u128)
@@ -162,30 +185,30 @@ impl GeneratePayout for Contract {
                 CALLBACK
               )
             );
-      }
 
-      env::log_str("Done!\n");
+        env::log_str(format!("{}\nDone!", logs).as_str());
 
-      // If there are refund, refund. If no, continue on. 
-      let owner_id = env::signer_account_id();
-      let refund: Balance = self.get_refund(owner_id.clone()).into();
-      if refund > 0u128 {
-        env::log_str(
-          format!(
-            "Returning {} to @{}",
-            refund.clone(),
-            owner_id
-          ).as_str()
-        );
-        Promise::new(env::signer_account_id())
-            .transfer(refund)
-            .then(
-              ext_self::on_refund(
-                env::current_account_id(),
-                0,
-                CALLBACK
-              )
-            );
+        // If there are refund, refund. If no, continue on. 
+        let owner_id = env::signer_account_id();
+        let refund: Balance = self.get_refund(owner_id.clone()).into();
+        if refund > 0u128 {
+          env::log_str(
+            format!(
+              "Returning {} to @{}",
+              refund.clone(),
+              owner_id
+            ).as_str()
+          );
+          Promise::new(env::signer_account_id())
+              .transfer(refund)
+              .then(
+                ext_self::on_refund(
+                  env::current_account_id(),
+                  0,
+                  CALLBACK
+                )
+              );
+        }
       }
     }
 
